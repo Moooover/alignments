@@ -2,7 +2,7 @@ use nih_plug::prelude::*;
 use nih_plug_iced::IcedState;
 use twang::noise::Pink;
 
-use crate::process::TransferFunctionResults;
+use crate::process::{FourChanBuff, TransferFunctionResults};
 
 use std::sync::Arc;
 
@@ -11,10 +11,12 @@ mod process;
 
 struct AT {
     params: Arc<ATparams>,
-    measure_buffer: Vec<f32>,
+    input_buffer: Vec<Vec<f32>>,
+    spectrum_buffer: Vec<Vec<f32>>,
     samples_remaining: Arc<i32>,
     results: Arc<TransferFunctionResults>,
     pink: Pink,
+    ref_buff: Vec<f32>,
 }
 
 #[derive(Params)]
@@ -22,19 +24,20 @@ struct ATparams {
     #[persist = "editor-state"]
     editor_state: Arc<IcedState>,
     #[id = "length"]
-    measure_length: IntParam,
+    measure_length: IntParam, // 1 - 10 sec
     #[id = "status"]
-    measure_status: IntParam,
+    measure_status: IntParam, // 0 = stopped, 1 = timed measurement, -1 = live measurement
 }
 
 impl Default for AT {
     fn default() -> Self {
         Self {
             params: Arc::new(ATparams::default()),
-            measure_buffer: Vec::new(),
+            input_buffer: Vec::new(),
             samples_remaining: 0.into(),
             results: TransferFunctionResults::new().into(),
             pink: Pink::new(),
+            ref_buff: Vec::new(),
         }
     }
 }
@@ -61,6 +64,11 @@ impl Plugin for AT {
         AudioIOLayout {
             main_input_channels: NonZeroU32::new(1),
             main_output_channels: NonZeroU32::new(1),
+            ..AudioIOLayout::const_default()
+        },
+        AudioIOLayout {
+            main_input_channels: NonZeroU32::new(1),
+            main_output_channels: NonZeroU32::new(2),
             ..AudioIOLayout::const_default()
         },
         AudioIOLayout {
@@ -95,8 +103,16 @@ impl Plugin for AT {
         &mut self,
         audio_config: &AudioIOLayout,
         buffer_config: &BufferConfig,
-        _context: &mut impl InitContext<Self>,
+        context: &mut impl InitContext<Self>,
     ) -> bool {
+        // allocate buffers
+        for chan in 1..audio_config.main_input_channels.unwrap().into() {
+            self.input_buffer.push(Vec::with_capacity(
+                (buffer_config.sample_rate as i32 * 11) as usize,
+            ));
+        }
+
+        true
     }
 
     fn process(
