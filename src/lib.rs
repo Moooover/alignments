@@ -2,21 +2,24 @@ use nih_plug::prelude::*;
 use nih_plug_iced::IcedState;
 use twang::noise::Pink;
 
-use crate::process::{FourChanBuff, TransferFunctionResults};
+use crate::process::TransferFunctionResults;
 
 use std::sync::Arc;
 
 mod editor;
 mod process;
 
+// inputs cannot be averaged until after each one goes FT - IFT, so their delay can be detected.
+
 struct AT {
     params: Arc<ATparams>,
+    pink: Pink,
+    // this buffer is 4.5 MB at 48k. We should probably make this the only 11 second buffer, if possible.
     input_buffer: Vec<Vec<f32>>,
     spectrum_buffer: Vec<Vec<f32>>,
-    samples_remaining: Arc<i32>,
-    results: Arc<TransferFunctionResults>,
-    pink: Pink,
     ref_buff: Vec<f32>,
+    samples_remaining: Arc<i32>,
+    results: Arc<Vec<TransferFunctionResults>>,
 }
 
 #[derive(Params)]
@@ -33,11 +36,12 @@ impl Default for AT {
     fn default() -> Self {
         Self {
             params: Arc::new(ATparams::default()),
-            input_buffer: Vec::new(),
-            samples_remaining: 0.into(),
-            results: TransferFunctionResults::new().into(),
             pink: Pink::new(),
+            input_buffer: Vec::new(),
+            spectrum_buffer: Vec::new(),
             ref_buff: Vec::new(),
+            samples_remaining: 0.into(),
+            results: Vec::new().into(),
         }
     }
 }
