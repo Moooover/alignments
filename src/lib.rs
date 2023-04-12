@@ -8,16 +8,12 @@ use std::sync::Arc;
 
 mod editor;
 mod process;
-
-// inputs cannot be averaged until after each one goes FT - IFT, so their delay can be detected.
+mod state;
 
 struct AT {
     params: Arc<ATparams>,
     pink: Pink,
-    // this buffer is 4.5 MB at 48k. We should probably make this the only 11 second buffer, if possible.
-    input_buffer: Vec<Vec<f32>>,
-    spectrum_buffer: Vec<Vec<f32>>,
-    ref_buff: Vec<f32>,
+    buffers: process::ATbuffers,
     samples_remaining: Arc<i32>,
     results: Arc<Vec<TransferFunctionResults>>,
 }
@@ -30,6 +26,7 @@ struct ATparams {
     measure_length: IntParam, // 1 - 10 sec
     #[id = "status"]
     measure_status: IntParam, // 0 = stopped, 1 = timed measurement, -1 = live measurement
+                              //using "dumb" integers because nih_plug::params::EnumParam is confusing to implement, too.
 }
 
 impl Default for AT {
@@ -37,9 +34,7 @@ impl Default for AT {
         Self {
             params: Arc::new(ATparams::default()),
             pink: Pink::new(),
-            input_buffer: Vec::new(),
-            spectrum_buffer: Vec::new(),
-            ref_buff: Vec::new(),
+            buffers: process::ATbuffers::new(),
             samples_remaining: 0.into(),
             results: Vec::new().into(),
         }
@@ -50,7 +45,8 @@ impl Default for ATparams {
     fn default() -> Self {
         Self {
             editor_state: editor::default_state(),
-            measure_length: IntParam::new("Length", 3, IntRange::Linear { min: 1, max: 10 }),
+            measure_length: IntParam::new("Length", 3, IntRange::Linear { min: 1, max: 10 })
+                .with_unit("Seconds"),
             measure_status: IntParam::new("Status", 0, IntRange::Linear { min: -1, max: 1 }),
         }
     }
@@ -101,7 +97,7 @@ impl Plugin for AT {
         self.params.clone()
     }
 
-    fn editor(&self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {}
+    //fn editor(&self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {}
 
     fn initialize(
         &mut self,
@@ -109,12 +105,14 @@ impl Plugin for AT {
         buffer_config: &BufferConfig,
         context: &mut impl InitContext<Self>,
     ) -> bool {
-        // allocate buffers
+        // allocate big buffer
         for chan in 1..audio_config.main_input_channels.unwrap().into() {
-            self.input_buffer.push(Vec::with_capacity(
+            self.buffers.input_buff.push(Vec::with_capacity(
                 (buffer_config.sample_rate as i32 * 11) as usize,
             ));
         }
+        self.reference_buff
+            .reserve((buffer_config.sample_rate as i32 * 11) as usize);
 
         true
     }
@@ -122,15 +120,31 @@ impl Plugin for AT {
     fn process(
         &mut self,
         buffer: &mut Buffer,
-        _aux: &mut AuxiliaryBuffers,
-        _context: &mut impl ProcessContext<Self>,
+        aux: &mut AuxiliaryBuffers,
+        context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
+        // when measure_status == 0 do nothing
+        // when measure_status == 1 && samples_remaining != 0, add input to buffer and output pink
+        // when measure_status == 1 && samples_remaining == 0, run the analysis process and reset status to 0.
+        // when measure_status == -1, run live analysis process
+        match (&self.params.measure_status.value(), *self.samples_remaining) {
+            (0, 0) => (),
+            (1, 0) => {
+                process::run_analysis(&self);
+            }
+            (1, _) => {
+                process::collect_data();
+            }
+            (-1, _) => (),       // todo: live feature
+            _ => unreachable!(), // because measure_status will be set manually, not with math
+        }
+
         ProcessStatus::Normal
     }
 }
 
 impl ClapPlugin for AT {
-    const CLAP_ID: &'static str = "discrete.symbol.continuous.syntax.alignment.tool.0.1.0";
+    const CLAP_ID: &'static str = "discrete.symbol.continuous.syntax.alignment.tool.0.0";
     const CLAP_DESCRIPTION: Option<&'static str> = Some("For rapid sound system deployment");
     const CLAP_MANUAL_URL: Option<&'static str> = None;
     const CLAP_SUPPORT_URL: Option<&'static str> = None;

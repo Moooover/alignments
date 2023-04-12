@@ -9,7 +9,7 @@ const EDITOR_H: u32 = 150;
 
 struct ATeditor {
     params: Arc<ATparams>,
-    results: Arc<TransferFunctionResults>,
+    results: Arc<Vec<TransferFunctionResults>>,
 }
 
 pub(crate) fn default_state() -> Arc<IcedState> {
