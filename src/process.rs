@@ -8,7 +8,7 @@ pub fn run_analysis(plugin: &AT) {
     // average however desired
 }
 
-pub fn collect_data() {
+pub fn collect_data(buffer: &Buffer) {
     // write input audio to buffer
     // write pink to output audio
     // profit
@@ -19,7 +19,8 @@ pub struct TransferFunctionResults {
     freq_response: Vec<f32>,
     phase_response: Vec<f32>,
     impulse_response: Vec<f32>,
-    delay: i32,
+    coherence: Vec<f32>,
+    delay: u32,
 }
 
 impl TransferFunctionResults {
@@ -29,26 +30,26 @@ impl TransferFunctionResults {
             freq_response: Vec::new(),
             phase_response: Vec::new(),
             impulse_response: Vec::new(),
+            coherence: Vec::new(),
             delay: 0,
         }
     }
 }
 
 pub struct ATbuffers {
-    pub input_buff: Vec<Vec<f32>>,
-    pub freq_buff: Vec<Vec<(f32, f32)>>,
-    pub impulse_buff: Vec<Vec<f32>>,
-
-    pub reference_buff: Vec<f32>,
+    pub input: Vec<Vec<f32>>,
+    pub freq: Vec<Vec<(f32, f32)>>,
+    pub impulse: Vec<Vec<f32>>,
+    pub reference: Vec<f32>,
 }
 
 impl ATbuffers {
     pub fn new() -> ATbuffers {
         Self {
-            input_buff: Vec::new(),
-            freq_buff: Vec::new(),
-            impulse_buff: Vec::new(),
-            reference_buff: Vec::new(),
+            input: Vec::new(),
+            freq: Vec::new(),
+            impulse: Vec::new(),
+            reference: Vec::new(),
         }
     }
 }

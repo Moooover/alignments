@@ -8,13 +8,12 @@ use std::sync::Arc;
 
 mod editor;
 mod process;
-mod state;
 
-struct AT {
+pub struct AT {
     params: Arc<ATparams>,
     pink: Pink,
     buffers: process::ATbuffers,
-    samples_remaining: Arc<i32>,
+    sample_counter: Arc<u32>,
     results: Arc<Vec<TransferFunctionResults>>,
 }
 
@@ -35,7 +34,7 @@ impl Default for AT {
             params: Arc::new(ATparams::default()),
             pink: Pink::new(),
             buffers: process::ATbuffers::new(),
-            samples_remaining: 0.into(),
+            sample_counter: 0.into(),
             results: Vec::new().into(),
         }
     }
@@ -82,8 +81,18 @@ impl Plugin for AT {
             ..AudioIOLayout::const_default()
         },
         AudioIOLayout {
+            main_input_channels: NonZeroU32::new(3),
+            main_output_channels: NonZeroU32::new(3),
+            ..AudioIOLayout::const_default()
+        },
+        AudioIOLayout {
             main_input_channels: NonZeroU32::new(4),
             main_output_channels: NonZeroU32::new(2),
+            ..AudioIOLayout::const_default()
+        },
+        AudioIOLayout {
+            main_input_channels: NonZeroU32::new(4),
+            main_output_channels: NonZeroU32::new(4),
             ..AudioIOLayout::const_default()
         },
     ];
@@ -107,11 +116,12 @@ impl Plugin for AT {
     ) -> bool {
         // allocate big buffer
         for chan in 1..audio_config.main_input_channels.unwrap().into() {
-            self.buffers.input_buff.push(Vec::with_capacity(
+            self.buffers.input.push(Vec::with_capacity(
                 (buffer_config.sample_rate as i32 * 11) as usize,
             ));
         }
-        self.reference_buff
+        self.buffers
+            .reference
             .reserve((buffer_config.sample_rate as i32 * 11) as usize);
 
         true
@@ -127,13 +137,13 @@ impl Plugin for AT {
         // when measure_status == 1 && samples_remaining != 0, add input to buffer and output pink
         // when measure_status == 1 && samples_remaining == 0, run the analysis process and reset status to 0.
         // when measure_status == -1, run live analysis process
-        match (&self.params.measure_status.value(), *self.samples_remaining) {
+        match (&self.params.measure_status.value(), *self.sample_counter) {
             (0, 0) => (),
             (1, 0) => {
                 process::run_analysis(&self);
             }
             (1, _) => {
-                process::collect_data();
+                process::collect_data(buffer);
             }
             (-1, _) => (),       // todo: live feature
             _ => unreachable!(), // because measure_status will be set manually, not with math
