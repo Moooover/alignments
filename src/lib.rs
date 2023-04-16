@@ -10,7 +10,7 @@ mod editor;
 mod process;
 mod state;
 
-struct AT {
+pub struct AT {
     params: Arc<ATparams>,
     pink: Pink,
     buffers: process::ATbuffers,
@@ -105,13 +105,12 @@ impl Plugin for AT {
         buffer_config: &BufferConfig,
         context: &mut impl InitContext<Self>,
     ) -> bool {
+        let size = (buffer_config.sample_rate as i32 * 11) as usize;
         // allocate big buffer
-        for chan in 1..audio_config.main_input_channels.unwrap().into() {
-            self.buffers.input_buff.push(Vec::with_capacity(
-                (buffer_config.sample_rate as i32 * 11) as usize,
-            ));
+        for _chan in 1..audio_config.main_input_channels.unwrap().into() {
+            self.buffers.input_buff.push(Vec::with_capacity(size));
         }
-        self.reference_buff
+        self.buffers.reference_buff
             .reserve((buffer_config.sample_rate as i32 * 11) as usize);
 
         true
@@ -133,7 +132,7 @@ impl Plugin for AT {
                 process::run_analysis(&self);
             }
             (1, _) => {
-                process::collect_data();
+                process::collect_data(&buffer);
             }
             (-1, _) => (),       // todo: live feature
             _ => unreachable!(), // because measure_status will be set manually, not with math

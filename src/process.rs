@@ -8,7 +8,7 @@ pub fn run_analysis(plugin: &AT) {
     // average however desired
 }
 
-pub fn collect_data() {
+pub fn collect_data(buffer: &Buffer) {
     // write input audio to buffer
     // write pink to output audio
     // profit
@@ -38,7 +38,6 @@ pub struct ATbuffers {
     pub input_buff: Vec<Vec<f32>>,
     pub freq_buff: Vec<Vec<(f32, f32)>>,
     pub impulse_buff: Vec<Vec<f32>>,
-
     pub reference_buff: Vec<f32>,
 }
 
