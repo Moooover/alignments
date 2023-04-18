@@ -1,18 +1,18 @@
 use nih_plug::prelude::*;
 use nih_plug_iced::IcedState;
 
-use crate::process::TransferFunctionResults;
+use crate::process::*;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 mod editor;
 mod process;
 
 pub struct AT {
     params: Arc<ATparams>,
-    buffers: process::ATbuffers,
-    sample_counter: Arc<u32>,
-    results: Arc<Vec<TransferFunctionResults>>,
+    buffers: ATbuffers,
+    sample_counter: ATcounter,
+    results: Arc<Vec<TFresults>>,
 }
 
 #[derive(Params)]
@@ -36,8 +36,8 @@ impl Default for AT {
     fn default() -> Self {
         Self {
             params: Arc::new(ATparams::default()),
-            buffers: process::ATbuffers::new(),
-            sample_counter: 0.into(),
+            buffers: ATbuffers::new(),
+            sample_counter: ATcounter::new(),
             results: Vec::new().into(),
         }
     }
@@ -54,6 +54,45 @@ impl Default for ATparams {
 }
 
 impl Plugin for AT {
+    //fn editor(&self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {}
+
+    fn initialize(
+        &mut self,
+        audio_config: &AudioIOLayout,
+        buffer_config: &BufferConfig,
+        context: &mut impl InitContext<Self>,
+    ) -> bool {
+        const MAX_BUFF: i32 = 7; // seconds
+        let size = (buffer_config.sample_rate as i32 * MAX_BUFF) as usize;
+        let n_chan: u32 = audio_config.main_input_channels.unwrap().into();
+        self.buffers.init(size, n_chan);
+
+        true
+    }
+
+    fn process(
+        &mut self,
+        buffer: &mut Buffer,
+        aux: &mut AuxiliaryBuffers,
+        context: &mut impl ProcessContext<Self>,
+    ) -> ProcessStatus {
+        match self.params.measure_status.value() {
+            false => (),
+            true => match self.sample_counter.get() {
+                None => {
+                    run_analysis(&self);
+                    self.params.measure_status.
+                },
+                Some(n) => { 
+                    collect_data(buffer); 
+                    self.sample_counter.decr();
+                },
+            },
+        }
+
+        ProcessStatus::Normal
+    }
+
     const NAME: &'static str = "Alignment Tool v.1";
     const VENDOR: &'static str = "Wirebender Audio";
     const URL: &'static str = "";
@@ -106,41 +145,6 @@ impl Plugin for AT {
 
     fn params(&self) -> Arc<dyn Params> {
         self.params.clone()
-    }
-
-    //fn editor(&self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {}
-
-    fn initialize(
-        &mut self,
-        audio_config: &AudioIOLayout,
-        buffer_config: &BufferConfig,
-        context: &mut impl InitContext<Self>,
-    ) -> bool {
-        const MAX_BUFF: i32 = 7; // seconds
-        let size = (buffer_config.sample_rate as i32 * MAX_BUFF) as usize;
-        let n_chan: u32 = audio_config.main_input_channels.unwrap().into();
-        self.buffers.init(size, n_chan);
-
-        true
-    }
-
-    fn process(
-        &mut self,
-        buffer: &mut Buffer,
-        aux: &mut AuxiliaryBuffers,
-        context: &mut impl ProcessContext<Self>,
-    ) -> ProcessStatus {
-        match self.params.measure_status.value() {
-            false => (),
-            true => match self.sample_counter {
-                None => {
-                    process::run_analysis(&self);
-                    self.params.measure_status = false;
-                }
-            },
-        }
-
-        ProcessStatus::Normal
     }
 }
 

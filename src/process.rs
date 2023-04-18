@@ -2,7 +2,7 @@ use crate::AT;
 use nih_plug::prelude::*;
 use twang::noise::Pink;
 
-impl TransferFunctionResults {
+impl TFresults {
     pub fn new() -> Self {
         Self {
             spectrum: Vec::new(),
@@ -41,7 +41,7 @@ impl ATbuffers {
     }
 }
 
-pub struct TransferFunctionResults {
+pub struct TFresults {
     spectrum: Vec<f32>,
     freq_response: Vec<f32>,
     phase_response: Vec<f32>,
@@ -50,6 +50,25 @@ pub struct TransferFunctionResults {
     delay: u32,
 }
 
+pub struct ATcounter {
+    inner: i64,
+}
+impl ATcounter {
+    pub fn get(&self) -> Option<i64> {
+        if self.inner < 1 {
+            return None;
+        } else {
+            return Some(self.inner);
+        };
+    }
+    pub fn set(&self, m_t: crate::ATtype) {
+        match m_t {
+            Verify => ,
+            Align => ,
+            Live => self.inner = 
+        }
+    }
+}
 pub fn run_analysis(plugin: &AT) {
     // find the delay on each channel
     // find the difference of each channel

@@ -1,4 +1,4 @@
-use crate::process::TransferFunctionResults;
+use crate::process::TFresults;
 use crate::ATparams;
 use nih_plug_iced::*;
 
@@ -9,7 +9,7 @@ const EDITOR_H: u32 = 150;
 
 struct ATeditor {
     params: Arc<ATparams>,
-    results: Arc<Vec<TransferFunctionResults>>,
+    results: Arc<Vec<TFresults>>,
 }
 
 pub(crate) fn default_state() -> Arc<IcedState> {
