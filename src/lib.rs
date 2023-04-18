@@ -1,6 +1,5 @@
 use nih_plug::prelude::*;
 use nih_plug_iced::IcedState;
-use twang::noise::Pink;
 
 use crate::process::TransferFunctionResults;
 
@@ -11,7 +10,6 @@ mod process;
 
 pub struct AT {
     params: Arc<ATparams>,
-    pink: Pink,
     buffers: process::ATbuffers,
     sample_counter: Arc<u32>,
     results: Arc<Vec<TransferFunctionResults>>,
@@ -21,18 +19,23 @@ pub struct AT {
 struct ATparams {
     #[persist = "editor-state"]
     editor_state: Arc<IcedState>,
-    #[id = "length"]
-    measure_length: IntParam, // 1 - 10 sec
-    #[id = "status"]
-    measure_status: IntParam, // 0 = stopped, 1 = timed measurement, -1 = live measurement
-                              //using "dumb" integers because nih_plug::params::EnumParam is confusing to implement, too.
+    #[id = "measure-type"]
+    measure_type: ATtype,
+    #[id = "measure-status"]
+    measure_status: BoolParam,
+}
+
+#[derive(Params, Enum)]
+enum ATtype {
+    Verify,
+    Align,
+    Continuous,
 }
 
 impl Default for AT {
     fn default() -> Self {
         Self {
             params: Arc::new(ATparams::default()),
-            pink: Pink::new(),
             buffers: process::ATbuffers::new(),
             sample_counter: 0.into(),
             results: Vec::new().into(),
@@ -44,9 +47,8 @@ impl Default for ATparams {
     fn default() -> Self {
         Self {
             editor_state: editor::default_state(),
-            measure_length: IntParam::new("Length", 3, IntRange::Linear { min: 1, max: 10 })
-                .with_unit("Seconds"),
-            measure_status: IntParam::new("Status", 0, IntRange::Linear { min: -1, max: 1 }),
+            measure_type: ATtype::Verify,
+            measure_status: BoolParam::new("measure-status", false),
         }
     }
 }
@@ -114,15 +116,10 @@ impl Plugin for AT {
         buffer_config: &BufferConfig,
         context: &mut impl InitContext<Self>,
     ) -> bool {
-        // allocate big buffer
-        for chan in 1..audio_config.main_input_channels.unwrap().into() {
-            self.buffers.input.push(Vec::with_capacity(
-                (buffer_config.sample_rate as i32 * 11) as usize,
-            ));
-        }
-        self.buffers
-            .reference
-            .reserve((buffer_config.sample_rate as i32 * 11) as usize);
+        const MAX_BUFF: i32 = 7; // seconds
+        let size = (buffer_config.sample_rate as i32 * MAX_BUFF) as usize;
+        let n_chan: u32 = audio_config.main_input_channels.unwrap().into();
+        self.buffers.init(size, n_chan);
 
         true
     }
@@ -133,20 +130,14 @@ impl Plugin for AT {
         aux: &mut AuxiliaryBuffers,
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        // when measure_status == 0 do nothing
-        // when measure_status == 1 && samples_remaining != 0, add input to buffer and output pink
-        // when measure_status == 1 && samples_remaining == 0, run the analysis process and reset status to 0.
-        // when measure_status == -1, run live analysis process
-        match (&self.params.measure_status.value(), *self.sample_counter) {
-            (0, 0) => (),
-            (1, 0) => {
-                process::run_analysis(&self);
-            }
-            (1, _) => {
-                process::collect_data(buffer);
-            }
-            (-1, _) => (),       // todo: live feature
-            _ => unreachable!(), // because measure_status will be set manually, not with math
+        match self.params.measure_status.value() {
+            false => (),
+            true => match self.sample_counter {
+                None => {
+                    process::run_analysis(&self);
+                    self.params.measure_status = false;
+                }
+            },
         }
 
         ProcessStatus::Normal
