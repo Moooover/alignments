@@ -65,8 +65,11 @@ impl ATcounter {
         match m_t {
             Verify => ,
             Align => ,
-            Live => self.inner = 
+            Live => self.inner = 2,
         }
+    }
+    pub fn decr(&self) {
+
     }
 }
 pub fn run_analysis(plugin: &AT) {
