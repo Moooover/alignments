@@ -42,7 +42,7 @@ impl Default for AT {
             buffers: ATbuffers::new(),
             sample_counter: ATcounter::new(),
             results: Vec::new().into(),
-            s_r: 0,
+            s_r: 0.0,
             measure_status: false,
         }
     }
@@ -52,7 +52,7 @@ impl Default for ATparams {
     fn default() -> Self {
         Self {
             editor_state: editor::default_state(),
-            measure_type: ATtype::Verify,
+            measure_type: EnumParam::new("Verify", ATtype::Verify),
         }
     }
 }
@@ -91,7 +91,7 @@ impl Plugin for AT {
                 }
                 Some(n) => {
                     collect_data(buffer);
-                    match self.params.measure_type {
+                    match self.params.measure_type.value() {
                         ATtype::Live => (),
                         ATtype::Verify | ATtype::Align => {
                             self.sample_counter.decr(buffer.samples())
