@@ -61,17 +61,18 @@ impl ATcounter {
             return Some(self.inner);
         };
     }
-    pub fn set(&self, m_t: crate::ATtype) {
+    pub fn set(&self, m_t: &crate::ATtype, s_r: &f32) {
         match m_t {
             Verify => ,
             Align => ,
             Live => self.inner = 2,
         }
     }
-    pub fn decr(&self) {
-
+    pub fn decr(&self, n: usize) {
+        self.inner = self.inner - (n as i64);
     }
-}
+    pub fn new() -> ATcounter { Self { inner: 0,}}}
+    
 pub fn run_analysis(plugin: &AT) {
     // find the delay on each channel
     // find the difference of each channel
@@ -83,6 +84,10 @@ pub fn collect_data(buffer: &Buffer) {
     // write input audio to buffer
     // write pink to output audio
     // profit
+}
+
+pub fn mute_output(buffer: &Buffer) {
+    
 }
 
 fn find_delay() {}

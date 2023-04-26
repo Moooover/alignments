@@ -3,6 +3,9 @@ name = "AlignmentTool"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
 nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git"}
 nih_plug_iced = { git = "https://github.com/robbert-vdh/nih-plug.git"}

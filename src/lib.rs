@@ -3,7 +3,7 @@ use nih_plug_iced::IcedState;
 
 use crate::process::*;
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 mod editor;
 mod process;
@@ -13,6 +13,8 @@ pub struct AT {
     buffers: ATbuffers,
     sample_counter: ATcounter,
     results: Arc<Vec<TFresults>>,
+    s_r: f32,
+    measure_status: bool,
 }
 
 #[derive(Params)]
@@ -20,16 +22,17 @@ struct ATparams {
     #[persist = "editor-state"]
     editor_state: Arc<IcedState>,
     #[id = "measure-type"]
-    measure_type: ATtype,
-    #[id = "measure-status"]
-    measure_status: BoolParam,
+    measure_type: EnumParam<ATtype>,
 }
 
-#[derive(Params, Enum)]
+#[derive(Enum, Debug, PartialEq)]
 enum ATtype {
+    #[id = "Verify"]
     Verify,
+    #[id = "Align"]
     Align,
-    Continuous,
+    #[id = "Live"]
+    Live,
 }
 
 impl Default for AT {
@@ -39,6 +42,8 @@ impl Default for AT {
             buffers: ATbuffers::new(),
             sample_counter: ATcounter::new(),
             results: Vec::new().into(),
+            s_r: 0,
+            measure_status: false,
         }
     }
 }
@@ -48,7 +53,6 @@ impl Default for ATparams {
         Self {
             editor_state: editor::default_state(),
             measure_type: ATtype::Verify,
-            measure_status: BoolParam::new("measure-status", false),
         }
     }
 }
@@ -62,8 +66,9 @@ impl Plugin for AT {
         buffer_config: &BufferConfig,
         context: &mut impl InitContext<Self>,
     ) -> bool {
+        self.s_r = buffer_config.sample_rate;
         const MAX_BUFF: i32 = 7; // seconds
-        let size = (buffer_config.sample_rate as i32 * MAX_BUFF) as usize;
+        let size = (self.s_r as i32 * MAX_BUFF) as usize;
         let n_chan: u32 = audio_config.main_input_channels.unwrap().into();
         self.buffers.init(size, n_chan);
 
@@ -76,17 +81,23 @@ impl Plugin for AT {
         aux: &mut AuxiliaryBuffers,
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        match self.params.measure_status.value() {
-            false => (),
+        match self.measure_status {
+            false => mute_output(buffer),
             true => match self.sample_counter.get() {
                 None => {
+                    mute_output(buffer);
                     run_analysis(&self);
-                    self.params.measure_status.
-                },
-                Some(n) => { 
-                    collect_data(buffer); 
-                    self.sample_counter.decr();
-                },
+                    self.measure_status = false;
+                }
+                Some(n) => {
+                    collect_data(buffer);
+                    match self.params.measure_type {
+                        ATtype::Live => (),
+                        ATtype::Verify | ATtype::Align => {
+                            self.sample_counter.decr(buffer.samples())
+                        }
+                    }
+                }
             },
         }
 
