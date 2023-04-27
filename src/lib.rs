@@ -11,28 +11,14 @@ mod process;
 pub struct AT {
     params: Arc<ATparams>,
     buffers: ATbuffers,
-    sample_counter: ATcounter,
     results: Arc<Vec<TFresults>>,
     s_r: f32,
-    measure_status: bool,
 }
 
 #[derive(Params)]
 struct ATparams {
     #[persist = "editor-state"]
     editor_state: Arc<IcedState>,
-    #[id = "measure-type"]
-    measure_type: EnumParam<ATtype>,
-}
-
-#[derive(Enum, Debug, PartialEq)]
-enum ATtype {
-    #[id = "Verify"]
-    Verify,
-    #[id = "Align"]
-    Align,
-    #[id = "Live"]
-    Live,
 }
 
 impl Default for AT {
@@ -40,10 +26,8 @@ impl Default for AT {
         Self {
             params: Arc::new(ATparams::default()),
             buffers: ATbuffers::new(),
-            sample_counter: ATcounter::new(),
             results: Vec::new().into(),
             s_r: 0.0,
-            measure_status: false,
         }
     }
 }
@@ -52,7 +36,6 @@ impl Default for ATparams {
     fn default() -> Self {
         Self {
             editor_state: editor::default_state(),
-            measure_type: EnumParam::new("Verify", ATtype::Verify),
         }
     }
 }
@@ -81,26 +64,6 @@ impl Plugin for AT {
         aux: &mut AuxiliaryBuffers,
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        match self.measure_status {
-            false => mute_output(buffer),
-            true => match self.sample_counter.get() {
-                None => {
-                    mute_output(buffer);
-                    run_analysis(&self);
-                    self.measure_status = false;
-                }
-                Some(n) => {
-                    collect_data(buffer);
-                    match self.params.measure_type.value() {
-                        ATtype::Live => (),
-                        ATtype::Verify | ATtype::Align => {
-                            self.sample_counter.decr(buffer.samples())
-                        }
-                    }
-                }
-            },
-        }
-
         ProcessStatus::Normal
     }
 

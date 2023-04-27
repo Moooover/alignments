@@ -87,7 +87,7 @@ pub fn collect_data(buffer: &Buffer) {
 }
 
 pub fn mute_output(buffer: &Buffer) {
-    
+    buffer.iter_samples();
 }
 
 fn find_delay() {}
