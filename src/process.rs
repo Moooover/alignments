@@ -23,6 +23,9 @@ pub struct ATbuffers {
 }
 
 impl ATbuffers {
+    pub fn add(&mut self, buffer: &Buffer) {
+        for chan in buffer.iter_samples()
+    }
     pub fn new() -> ATbuffers {
         Self {
             input: Vec::new(),
@@ -31,8 +34,8 @@ impl ATbuffers {
             reference: Vec::new(),
         }
     }
-    pub fn init(&self, size: usize, n_chan: u32) {
-        for chan in 1..=n_chan {
+    pub fn init(&mut self, size: usize, n_chan: u32) {
+        for n in 1..=n_chan {
             self.input.push(Vec::with_capacity(size));
             self.freq.push(Vec::with_capacity(size));
             self.impulse.push(Vec::with_capacity(size));
@@ -49,45 +52,3 @@ pub struct TFresults {
     coherence: Vec<f32>,
     delay: u32,
 }
-
-pub struct ATcounter {
-    inner: i64,
-}
-impl ATcounter {
-    pub fn get(&self) -> Option<i64> {
-        if self.inner < 1 {
-            return None;
-        } else {
-            return Some(self.inner);
-        };
-    }
-    pub fn set(&self, m_t: &crate::ATtype, s_r: &f32) {
-        match m_t {
-            Verify => ,
-            Align => ,
-            Live => self.inner = 2,
-        }
-    }
-    pub fn decr(&self, n: usize) {
-        self.inner = self.inner - (n as i64);
-    }
-    pub fn new() -> ATcounter { Self { inner: 0,}}}
-    
-pub fn run_analysis(plugin: &AT) {
-    // find the delay on each channel
-    // find the difference of each channel
-    // find the impulse response of each difference
-    // average if multiple channels
-}
-
-pub fn collect_data(buffer: &Buffer) {
-    // write input audio to buffer
-    // write pink to output audio
-    // profit
-}
-
-pub fn mute_output(buffer: &Buffer) {
-    buffer.iter_samples();
-}
-
-fn find_delay() {}

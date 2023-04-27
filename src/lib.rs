@@ -76,16 +76,6 @@ impl Plugin for AT {
 
     const AUDIO_IO_LAYOUTS: &'static [AudioIOLayout] = &[
         AudioIOLayout {
-            main_input_channels: NonZeroU32::new(1),
-            main_output_channels: NonZeroU32::new(1),
-            ..AudioIOLayout::const_default()
-        },
-        AudioIOLayout {
-            main_input_channels: NonZeroU32::new(1),
-            main_output_channels: NonZeroU32::new(2),
-            ..AudioIOLayout::const_default()
-        },
-        AudioIOLayout {
             main_input_channels: NonZeroU32::new(2),
             main_output_channels: NonZeroU32::new(2),
             ..AudioIOLayout::const_default()
@@ -110,6 +100,46 @@ impl Plugin for AT {
             main_output_channels: NonZeroU32::new(4),
             ..AudioIOLayout::const_default()
         },
+        AudioIOLayout {
+            main_input_channels: NonZeroU32::new(5),
+            main_output_channels: NonZeroU32::new(2),
+            ..AudioIOLayout::const_default()
+        },
+        AudioIOLayout {
+            main_input_channels: NonZeroU32::new(5),
+            main_output_channels: NonZeroU32::new(5),
+            ..AudioIOLayout::const_default()
+        },
+        AudioIOLayout {
+            main_input_channels: NonZeroU32::new(6),
+            main_output_channels: NonZeroU32::new(2),
+            ..AudioIOLayout::const_default()
+        },
+        AudioIOLayout {
+            main_input_channels: NonZeroU32::new(6),
+            main_output_channels: NonZeroU32::new(6),
+            ..AudioIOLayout::const_default()
+        },
+        AudioIOLayout {
+            main_input_channels: NonZeroU32::new(7),
+            main_output_channels: NonZeroU32::new(2),
+            ..AudioIOLayout::const_default()
+        },
+        AudioIOLayout {
+            main_input_channels: NonZeroU32::new(7),
+            main_output_channels: NonZeroU32::new(7),
+            ..AudioIOLayout::const_default()
+        },
+        AudioIOLayout {
+            main_input_channels: NonZeroU32::new(8),
+            main_output_channels: NonZeroU32::new(2),
+            ..AudioIOLayout::const_default()
+        },
+        AudioIOLayout {
+            main_input_channels: NonZeroU32::new(8),
+            main_output_channels: NonZeroU32::new(8),
+            ..AudioIOLayout::const_default()
+        },
     ];
 
     const SAMPLE_ACCURATE_AUTOMATION: bool = true;
@@ -123,7 +153,7 @@ impl Plugin for AT {
 }
 
 impl ClapPlugin for AT {
-    const CLAP_ID: &'static str = "discrete.symbol.continuous.syntax.alignment.tool.0.0";
+    const CLAP_ID: &'static str = "discrete.symbol.continuous.syntax.alignment.tool.0.1";
     const CLAP_DESCRIPTION: Option<&'static str> = Some("For rapid sound system deployment");
     const CLAP_MANUAL_URL: Option<&'static str> = None;
     const CLAP_SUPPORT_URL: Option<&'static str> = None;
