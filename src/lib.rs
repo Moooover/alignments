@@ -52,8 +52,8 @@ impl Plugin for AT {
         self.s_r = buffer_config.sample_rate;
         const MAX_BUFF: i32 = 7; // seconds
         let size = (self.s_r as i32 * MAX_BUFF) as usize;
-        let n_chan: u32 = audio_config.main_input_channels.unwrap().into();
-        self.buffers.init(size, n_chan);
+        let n_chan: usize = audio_config.main_input_channels.unwrap().into();
+        self.buffers.init(self.s_r, size, n_chan);
 
         true
     }
@@ -64,6 +64,8 @@ impl Plugin for AT {
         aux: &mut AuxiliaryBuffers,
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
+        self.buffers.push(buffer);
+
         ProcessStatus::Normal
     }
 
