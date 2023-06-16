@@ -1,4 +1,4 @@
-use crate::process::TFresults;
+use crate::proc::TFresults;
 use crate::ATparams;
 use nih_plug_iced::*;
 

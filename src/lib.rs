@@ -1,17 +1,21 @@
 use nih_plug::prelude::*;
 use nih_plug_iced::IcedState;
 
-use crate::process::*;
+use crate::buffers::*;
 
 use std::sync::Arc;
 
+mod buffers;
 mod editor;
-mod process;
+mod proc;
+
+const FREQ_RESOLUTION: f32 = 3.0;
+static TEMPORAL_AVG_DEPTH: usize = 8;
 
 pub struct AT {
     params: Arc<ATparams>,
-    buffers: ATbuffers,
-    results: Arc<Vec<TFresults>>,
+    buffers: buffers::ATbuffers,
+    results: Arc<Vec<TFresult>>,
     s_r: f32,
 }
 
@@ -25,7 +29,7 @@ impl Default for AT {
     fn default() -> Self {
         Self {
             params: Arc::new(ATparams::default()),
-            buffers: ATbuffers::new(),
+            buffers: ATbuffers::default(),
             results: Vec::new().into(),
             s_r: 0.0,
         }
@@ -50,10 +54,8 @@ impl Plugin for AT {
         context: &mut impl InitContext<Self>,
     ) -> bool {
         self.s_r = buffer_config.sample_rate;
-        const MAX_BUFF: i32 = 7; // seconds
-        let size = (self.s_r as i32 * MAX_BUFF) as usize;
-        let n_chan: usize = audio_config.main_input_channels.unwrap().into();
-        self.buffers.init(self.s_r, size, n_chan);
+        let n_chan: std::num::NonZeroU32 = audio_config.main_input_channels.unwrap();
+        self.buffers.init(self.s_r as usize, n_chan.get() as usize);
 
         true
     }
@@ -64,7 +66,8 @@ impl Plugin for AT {
         aux: &mut AuxiliaryBuffers,
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        self.buffers.push(buffer);
+        // probably missing some event handling here: need to watch for buffer resets from user
+        self.buffers.update(&buffer);
 
         ProcessStatus::Normal
     }
