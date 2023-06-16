@@ -1,16 +1,20 @@
 use crate::buffers::*;
 use rustfft::*;
-use std::thread;
+use std::thread::*;
 
 pub struct ProcessObject {
-    proc_thread: thread,
+    proc_thread: Thread,
 }
 
 impl ProcessObject {
-    pub fn new() -> Self {}
-    pub fn init() {}
+    pub fn default() -> Self {
+        
+    }
+    pub fn init(&mut self) {}
 
-    pub fn difference(input: TFinput) -> TFresult {}
+    pub fn proc(&self, input: UndelayedBuffer) -> TFresults {}
 
-    pub fn find_delay(input: UndelayedBuffer) -> TFinput {}
+    fn difference(input: TFinput) -> TFresult {}
+
+    fn find_delay(input: UndelayedBuffer) -> TFinput {}
 }
