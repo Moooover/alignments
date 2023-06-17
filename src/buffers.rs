@@ -9,8 +9,12 @@ pub struct ATbuffers {
 }
 
 impl ATbuffers {
-    pub fn update(&mut self, buffer: &Buffer) -> Option<UndelayedBuffer> {
+    pub fn update_input(&mut self, buffer: &Buffer) -> Option<UndelayedBuffer> {
         self.input.update(buffer)
+    }
+
+    pub fn update_results(&mut self, input: TFresults) {
+        self.results.update(input);
     }
 
     pub fn default() -> Self {
@@ -125,15 +129,6 @@ pub struct TFresult {
 }
 
 impl TFresult {
-    fn default() -> Self {
-        Self {
-            spectrum: Vec::new(),
-            freq_response: Vec::new(),
-            phase_response: Vec::new(),
-            impulse_response: Vec::new(),
-            delay: 0,
-        }
-    }
     fn new(size: usize) -> Self {
         Self {
             spectrum: Vec::with_capacity(size),

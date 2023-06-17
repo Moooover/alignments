@@ -2,6 +2,7 @@ use nih_plug::prelude::*;
 use nih_plug_iced::IcedState;
 
 use crate::buffers::*;
+use crate::proc::*;
 
 use std::sync::Arc;
 
@@ -16,6 +17,7 @@ pub struct AT {
     params: Arc<ATparams>,
     buffers: buffers::ATbuffers,
     results: Arc<Vec<TFresult>>,
+    proc_ob: proc::ProcessObject,
     s_r: f32,
 }
 
@@ -31,6 +33,7 @@ impl Default for AT {
             params: Arc::new(ATparams::default()),
             buffers: ATbuffers::default(),
             results: Vec::new().into(),
+            proc_ob: proc::ProcessObject::default(),
             s_r: 0.0,
         }
     }
@@ -55,7 +58,9 @@ impl Plugin for AT {
     ) -> bool {
         self.s_r = buffer_config.sample_rate;
         let n_chan: std::num::NonZeroU32 = audio_config.main_input_channels.unwrap();
+
         self.buffers.init(self.s_r as usize, n_chan.get() as usize);
+        self.proc_ob.init();
 
         true
     }
@@ -67,7 +72,9 @@ impl Plugin for AT {
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
         // probably missing some event handling here: need to watch for buffer resets from user
-        self.buffers.update(&buffer);
+        if let Some(new_measurement) = self.buffers.update_input(&buffer) {
+            self.buffers.update_results(self.proc_ob.proc(new_measurement));
+        };
 
         ProcessStatus::Normal
     }
