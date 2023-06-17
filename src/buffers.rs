@@ -35,7 +35,6 @@ impl ATbuffers {
 pub struct InputBuffer {
     data: UndelayedBuffer,
     size: usize,
-    collected: usize,
 }
 
 impl InputBuffer {
@@ -43,7 +42,6 @@ impl InputBuffer {
         Self {
             data: UndelayedBuffer::default(),
             size: 0,
-            collected: 0,
         }
     }
 
@@ -53,7 +51,6 @@ impl InputBuffer {
     }
 
     fn update(&mut self, input: &Buffer) -> Option<UndelayedBuffer> {
-        self.collected += input.samples();
 
         for (n_ch, chan) in input.iter_samples().enumerate() {
             for sample in chan {
@@ -61,15 +58,14 @@ impl InputBuffer {
             }
         }
 
-        match self.collected > self.size {
+        match self.data.len() > self.size {
             false => return None,
             true => {
                 while self.data.len() > self.size {
                     self.data.pop();
                 }
-
-                let output = UndelayedBuffer::spawn(self.data);
                 self.refresh();
+                let output = UndelayedBuffer::spawn(self.data);
                 return Some(output);
             }
         }
@@ -77,7 +73,6 @@ impl InputBuffer {
 
     fn refresh(&mut self) {
         self.data.clear();
-        self.collected = 0;
     }
 }
 
@@ -174,6 +169,7 @@ struct ResultsBuffer {
     current: TFresults,
     data: Vec<TFresults>,
     cursor: usize,
+    full: bool,
 }
 
 impl ResultsBuffer {
@@ -182,6 +178,7 @@ impl ResultsBuffer {
             current: TFresults::default(),
             data: Vec::new(),
             cursor: 0,
+            full: false,
         }
     }
 
@@ -194,8 +191,10 @@ impl ResultsBuffer {
 
     fn update(&mut self, input: TFresults) {
         self.data[self.cursor] = input;
+        proc::time_avg()
         self.cursor += 1;
         if self.cursor >= TAD {
+            self.full = true;
             self.cursor = 0;
         }
     }
