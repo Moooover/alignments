@@ -1,61 +1,34 @@
-use crate::proc::*;
-use crate::TEMPORAL_AVG_DEPTH as TAD;
+use crate::{FFT_32K, FFT_64K, TEMPORAL_AVG_DEPTH as TAD};
 use nih_plug::prelude::*;
-pub struct ATbuffers {
-    input: InputBuffer,
-    results: ResultsBuffer,
-    s_r: usize,
-    size: usize,
-}
-
-impl ATbuffers {
-    pub fn update_input(&mut self, buffer: &Buffer) -> Option<UndelayedBuffer> {
-        self.input.update(buffer)
-    }
-
-    pub fn update_results(&mut self, input: TFresults) {
-        self.results.update(input);
-    }
-
-    pub fn default() -> Self {
-        Self {
-            input: InputBuffer::default(),
-            results: ResultsBuffer::default(),
-            s_r: 0,
-            size: 32768,
-        }
-    }
-
-    pub fn init(&mut self, s_r: usize, n_chan: usize) {
-        match s_r {
-            96000 => self.size = 65536,
-            _ => (),
-        }
-        self.input.init(self.size, n_chan);
-        self.results.init(self.size, n_chan);
-    }
-}
+use std::sync::mpsc::*;
 
 pub struct InputBuffer {
     data: UndelayedBuffer,
     size: usize,
+    tx: Sender<UndelayedBuffer>,
 }
 
 impl InputBuffer {
-    fn default() -> Self {
+    pub fn default() -> Self {
+        let (tx, rx) = channel();
         Self {
             data: UndelayedBuffer::default(),
-            size: 0,
+            size: FFT_32K,
+            tx,
         }
     }
+    pub fn init(&mut self, s_r: usize, n_ch: usize, tx_p: Sender<UndelayedBuffer>) -> &usize {
+        self.tx = tx_p;
+        match s_r {
+            96000 => self.size = FFT_64K,
+            _ => (),
+        }
+        self.data.init(n_ch, self.size);
 
-    fn init(&mut self, size: usize, n_ch: usize) {
-        self.size = size;
-        self.data.init(n_ch, size);
+        &self.size
     }
 
-    fn update(&mut self, input: &Buffer) -> Option<UndelayedBuffer> {
-
+    pub fn update(&mut self, input: &Buffer) {
         for (n_ch, chan) in input.iter_samples().enumerate() {
             for sample in chan {
                 self.data.push(n_ch, sample);
@@ -63,14 +36,13 @@ impl InputBuffer {
         }
 
         match self.data.len() > self.size {
-            false => return None,
+            false => (),
             true => {
                 while self.data.len() > self.size {
                     self.data.pop();
                 }
+                self.tx.send(self.data.clone());
                 self.refresh();
-                let output = UndelayedBuffer::spawn(self.data);
-                return Some(output);
             }
         }
     }
@@ -80,6 +52,7 @@ impl InputBuffer {
     }
 }
 
+#[derive(Clone)]
 pub struct UndelayedBuffer {
     data: Vec<Vec<f32>>,
 }
@@ -113,11 +86,6 @@ impl UndelayedBuffer {
             chan.clear();
         }
     }
-
-    fn spawn(input: Self) -> Self {
-        let output = input;
-        output
-    }
 }
 
 pub struct TFresult {
@@ -140,12 +108,12 @@ impl TFresult {
     }
 }
 
-struct TFresults {
+pub struct TFresults {
     inner: Vec<TFresult>,
 }
 
 impl TFresults {
-    fn default() -> Self {
+    pub fn default() -> Self {
         Self { inner: Vec::new() }
     }
     fn new(size: usize, n_ch: usize) -> Self {
@@ -160,7 +128,7 @@ impl TFresults {
     }
 }
 
-struct ResultsBuffer {
+pub struct ResultsBuffer {
     current: TFresults,
     data: Vec<TFresults>,
     cursor: usize,
@@ -168,7 +136,7 @@ struct ResultsBuffer {
 }
 
 impl ResultsBuffer {
-    fn default() -> Self {
+    pub fn default() -> Self {
         Self {
             current: TFresults::default(),
             data: Vec::new(),
@@ -184,13 +152,17 @@ impl ResultsBuffer {
         }
     }
 
-    fn update(&mut self, input: TFresults) {
-        self.data[self.cursor] = input;
-        proc::time_avg()
+    fn update(&mut self, input: &TFresults) {
+        self.data[self.cursor] = *input;
         self.cursor += 1;
         if self.cursor >= TAD {
             self.full = true;
             self.cursor = 0;
         }
+    }
+
+    fn refresh(&mut self) {
+        self.cursor = 0;
+        self.full = false;
     }
 }

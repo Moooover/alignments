@@ -2,23 +2,30 @@ use nih_plug::prelude::*;
 use nih_plug_iced::IcedState;
 
 use crate::buffers::*;
-use crate::proc::*;
+use crate::editor::*;
 
+use std::sync::mpsc::*;
 use std::sync::Arc;
 
 mod buffers;
 mod editor;
 mod proc;
 
-const FREQ_RESOLUTION: f32 = 3.0;
+static FREQ_RESOLUTION: f32 = 3.0;
 static TEMPORAL_AVG_DEPTH: usize = 8;
+static FFT_32K: usize = 32768;
+static FFT_64K: usize = 65536;
 
 pub struct AT {
     params: Arc<ATparams>,
-    buffers: buffers::ATbuffers,
-    results: Arc<Vec<TFresult>>,
+    buffer: buffers::InputBuffer,
     proc_ob: proc::ProcessObject,
-    s_r: f32,
+    s_r: usize,
+    size: usize,
+    tx_plug: Sender<TFresults>,
+    rx_plug: std::sync::mpsc::Receiver<TFresults>,
+    tx_gui: Sender<TFresults>,
+    rx_gui: std::sync::mpsc::Receiver<TFresults>,
 }
 
 #[derive(Params)]
@@ -29,12 +36,18 @@ struct ATparams {
 
 impl Default for AT {
     fn default() -> Self {
+        let (tx_plug, rx_plug) = channel();
+        let (tx_gui, rx_gui) = channel();
         Self {
             params: Arc::new(ATparams::default()),
-            buffers: ATbuffers::default(),
-            results: Vec::new().into(),
+            buffer: InputBuffer::default(),
             proc_ob: proc::ProcessObject::default(),
-            s_r: 0.0,
+            s_r: 0,
+            size: 0,
+            tx_plug,
+            rx_plug,
+            tx_gui,
+            rx_gui,
         }
     }
 }
@@ -56,11 +69,14 @@ impl Plugin for AT {
         buffer_config: &BufferConfig,
         context: &mut impl InitContext<Self>,
     ) -> bool {
-        self.s_r = buffer_config.sample_rate;
+        self.s_r = buffer_config.sample_rate as usize;
         let n_chan: std::num::NonZeroU32 = audio_config.main_input_channels.unwrap();
 
-        self.buffers.init(self.s_r as usize, n_chan.get() as usize);
-        self.proc_ob.init();
+        let (tx_proc, rx_proc) = channel();
+
+        self.size = *self.buffer.init(self.s_r, n_chan.get() as usize, tx_proc);
+        self.proc_ob
+            .init(self.s_r, self.size, &self, rx_proc, self.tx_plug.clone());
 
         true
     }
@@ -72,11 +88,18 @@ impl Plugin for AT {
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
         // probably missing some event handling here: need to watch for buffer resets from user
-        if let Some(new_measurement) = self.buffers.update_input(&buffer) {
-            self.buffers.update_results(self.proc_ob.proc(new_measurement));
-        };
+        self.buffer.update(&buffer);
+        if let Ok(new_measurement) = self.rx_plug.try_recv() {
+            self.tx_gui.send(new_measurement);
+        }
 
         ProcessStatus::Normal
+    }
+
+    fn editor(&self, async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
+        let (tx, rx) = channel();
+        self.tx_gui = tx.clone();
+        editor::create(self.params.clone(), rx, self.params.editor_state.clone())
     }
 
     const NAME: &'static str = "Alignment Tool v.1";
