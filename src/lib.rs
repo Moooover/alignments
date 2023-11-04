@@ -1,5 +1,5 @@
 use nih_plug::prelude::*;
-use nih_plug_iced::IcedState;
+use nih_plug_vizia::ViziaState;
 
 use crate::buffers::*;
 use crate::editor::*;
@@ -23,15 +23,15 @@ pub struct AT {
     s_r: usize,
     size: usize,
     tx_plug: Sender<TFresults>,
-    rx_plug: std::sync::mpsc::Receiver<TFresults>,
+    rx_plug: Receiver<TFresults>,
     tx_gui: Sender<TFresults>,
-    rx_gui: std::sync::mpsc::Receiver<TFresults>,
+    rx_gui: Receiver<TFresults>,
 }
 
 #[derive(Params)]
 struct ATparams {
     #[persist = "editor-state"]
-    editor_state: Arc<IcedState>,
+    editor_state: Arc<ViziaState>,
 }
 
 impl Default for AT {
@@ -70,13 +70,14 @@ impl Plugin for AT {
         context: &mut impl InitContext<Self>,
     ) -> bool {
         self.s_r = buffer_config.sample_rate as usize;
-        let n_chan: std::num::NonZeroU32 = audio_config.main_input_channels.unwrap();
+        let n_chan: std::num::NonZeroU32 = audio_config.main_input_channels.unwrap();//theoretically never fails
+        //since host knows we need minimum 2 channels
 
         let (tx_proc, rx_proc) = channel();
-
         self.size = *self.buffer.init(self.s_r, n_chan.get() as usize, tx_proc);
+
         self.proc_ob
-            .init(self.s_r, self.size, &self, rx_proc, self.tx_plug.clone());
+            .init(self.s_r, self.size, rx_proc, self.tx_plug.clone());
 
         true
     }
@@ -87,9 +88,10 @@ impl Plugin for AT {
         aux: &mut AuxiliaryBuffers,
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        // probably missing some event handling here: need to watch for buffer resets from user
+        // todo missing some event handling here: need to watch for buffer resets from user
         self.buffer.update(&buffer);
         if let Ok(new_measurement) = self.rx_plug.try_recv() {
+            // todo figure out how to make sure proc_ob thread will reactive
             self.tx_gui.send(new_measurement);
         }
 
@@ -100,6 +102,15 @@ impl Plugin for AT {
         let (tx, rx) = channel();
         self.tx_gui = tx.clone();
         editor::create(self.params.clone(), rx, self.params.editor_state.clone())
+    }
+
+    fn params(&self) -> Arc<dyn Params> {
+        self.params.clone()
+    }
+
+    fn reset(&mut self) {
+        self.buffer.refresh();
+        //how to reset editor?
     }
 
     const NAME: &'static str = "Alignment Tool v.1";
@@ -182,9 +193,6 @@ impl Plugin for AT {
     type SysExMessage = ();
     type BackgroundTask = ();
 
-    fn params(&self) -> Arc<dyn Params> {
-        self.params.clone()
-    }
 }
 
 impl ClapPlugin for AT {

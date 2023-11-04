@@ -24,7 +24,6 @@ impl ProcessObject {
         &mut self,
         s_r: usize,
         size: usize,
-        context: &AT,
         rx: Receiver<UndelayedBuffer>,
         tx: Sender<TFresults>,
     ) {
@@ -38,22 +37,28 @@ impl ProcessObject {
         });
     }
 
-    fn proc(&self, input: UndelayedBuffer) -> TFresults {
-        return self
-            .fft(input)
-            .ift()
-            .find_delay()
-            .find_difference()
-            .time_avg();
+    pub fn reset(&mut self) {
+
     }
 
-    fn fft(&self, input: UndelayedBuffer) -> SpectralResults {}
+    fn proc(&self, input: UndelayedBuffer) -> TFresults {
+        return self.spectral_output();
+   //         .fft(input)
+   //         .ift()
+   //         .find_delay()
+   //         .find_difference()
+   //         .time_avg();
+    }
 
-    fn ift(&self, input: SpectralResults) -> IRresults {}
+    fn spectral_output(&self) -> TFresults {}
 
-    fn find_delay(&self, input: IRresults) -> TFinput {}
+   // fn fft(&self, input: UndelayedBuffer) -> SpectralResults {}
 
-    fn find_difference(&self, input: TFinput) -> TFresults {}
+   // fn ift(&self, input: SpectralResults) -> IRresults {}
 
-    fn time_avg(&mut self, input: TFresults) -> TFresults {}
+   // fn find_delay(&self, input: IRresults) -> TFinput {}
+
+   // fn find_difference(&self, input: TFinput) -> TFresults {}
+
+   // fn time_avg(&mut self, input: TFresults) -> TFresults {}
 }

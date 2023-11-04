@@ -47,7 +47,7 @@ impl InputBuffer {
         }
     }
 
-    fn refresh(&mut self) {
+    pub fn refresh(&mut self) {
         self.data.clear();
     }
 }
