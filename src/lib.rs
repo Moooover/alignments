@@ -3,6 +3,7 @@ use nih_plug_vizia::ViziaState;
 
 use crate::buffers::*;
 use crate::editor::*;
+use crate::proc::*;
 
 use std::sync::mpsc::*;
 use std::sync::Arc;
@@ -89,10 +90,11 @@ impl Plugin for AT {
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
         // todo missing some event handling here: need to watch for buffer resets from user
-        self.buffer.update(&buffer);
-        if let Ok(new_measurement) = self.rx_plug.try_recv() {
-            // todo figure out how to make sure proc_ob thread will reactive
-            self.tx_gui.send(new_measurement);
+        if let Some(tf_buff) = self.buffer.update(buffer) {
+            thread::spawn(move || loop {
+                let new_measurement = proc::measure(tf_buff);
+                self.tx_gui.send(new_measurement);
+            })
         }
 
         ProcessStatus::Normal
