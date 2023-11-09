@@ -28,21 +28,22 @@ impl InputBuffer {
         &self.size
     }
 
-    pub fn update(&mut self, input: &Buffer) {
+    pub fn update(&mut self, input: &Buffer) -> Option<UndelayedBuffer> {
         for (n_ch, chan) in input.iter_samples().enumerate() {
             for sample in chan {
                 self.data.push(n_ch, sample);
             }
         }
-
+        // return expression
         match self.data.len() > self.size {
-            false => (),
+            false => None,
             true => {
                 while self.data.len() > self.size {
                     self.data.pop();
                 }
-                self.tx.send(self.data.clone());
+                let output = self.data.clone();
                 self.refresh();
+                Some(output)
             }
         }
     }

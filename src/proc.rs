@@ -4,7 +4,7 @@ use rustfft::*;
 use std::sync::mpsc::*;
 use std::thread;
 
-    pub fn measure(&self, input: UndelayedBuffer) -> TFresults {
+    pub fn measure(input: UndelayedBuffer) -> TFresults {
         return spectral_output(input);
    //         .fft(input)
    //         .ift()

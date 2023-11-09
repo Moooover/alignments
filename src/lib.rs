@@ -20,7 +20,6 @@ static FFT_64K: usize = 65536;
 pub struct AT {
     params: Arc<ATparams>,
     buffer: buffers::InputBuffer,
-    proc_ob: proc::ProcessObject,
     s_r: usize,
     size: usize,
     tx_plug: Sender<TFresults>,
@@ -42,7 +41,6 @@ impl Default for AT {
         Self {
             params: Arc::new(ATparams::default()),
             buffer: InputBuffer::default(),
-            proc_ob: proc::ProcessObject::default(),
             s_r: 0,
             size: 0,
             tx_plug,
@@ -76,9 +74,6 @@ impl Plugin for AT {
 
         let (tx_proc, rx_proc) = channel();
         self.size = *self.buffer.init(self.s_r, n_chan.get() as usize, tx_proc);
-
-        self.proc_ob
-            .init(self.s_r, self.size, rx_proc, self.tx_plug.clone());
 
         true
     }
