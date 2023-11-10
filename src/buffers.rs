@@ -5,20 +5,16 @@ use std::sync::mpsc::*;
 pub struct InputBuffer {
     data: UndelayedBuffer,
     size: usize,
-    tx: Sender<UndelayedBuffer>,
 }
 
 impl InputBuffer {
     pub fn default() -> Self {
-        let (tx, rx) = channel();
         Self {
             data: UndelayedBuffer::default(),
             size: FFT_32K,
-            tx,
         }
     }
-    pub fn init(&mut self, s_r: usize, n_ch: usize, tx_p: Sender<UndelayedBuffer>) -> &usize {
-        self.tx = tx_p;
+    pub fn init(&mut self, s_r: usize, n_ch: usize) -> &usize {
         match s_r {
             96000 => self.size = FFT_64K,
             _ => (),
@@ -34,7 +30,7 @@ impl InputBuffer {
                 self.data.push(n_ch, sample);
             }
         }
-        // return expression
+
         match self.data.len() > self.size {
             false => None,
             true => {
@@ -89,57 +85,17 @@ impl UndelayedBuffer {
     }
 }
 
-pub struct TFresult {
-    spectrum: Vec<f32>,
-    freq_response: Vec<f32>,
-    phase_response: Vec<f32>,
-    impulse_response: Vec<f32>,
-    delay: usize,
-}
-
-impl TFresult {
-    fn new(size: usize) -> Self {
-        Self {
-            spectrum: Vec::with_capacity(size),
-            freq_response: Vec::with_capacity(size),
-            phase_response: Vec::with_capacity(size),
-            impulse_response: Vec::with_capacity(size),
-            delay: 0,
-        }
-    }
-}
-
-pub struct TFresults {
-    inner: Vec<TFresult>,
-}
-
-impl TFresults {
-    pub fn default() -> Self {
-        Self { inner: Vec::new() }
-    }
-    fn new(size: usize, n_ch: usize) -> Self {
-        let mut new = TFresults::default();
-        for n in 0..n_ch {
-            new.inner.push(TFresult::new(size));
-        }
-        if n_ch > 2 {
-            new.inner.push(TFresult::new(size));
-        }
-        new
-    }
-}
-
-pub struct ResultsBuffer {
-    current: TFresults,
-    data: Vec<TFresults>,
+pub struct TimeAvgBuffer {
+    current: SDEresults,
+    data: Vec<SDEresults>,
     cursor: usize,
     full: bool,
 }
 
-impl ResultsBuffer {
+impl TimeAvgBuffer {
     pub fn default() -> Self {
         Self {
-            current: TFresults::default(),
+            current: SDEresults::default(),
             data: Vec::new(),
             cursor: 0,
             full: false,
@@ -147,13 +103,13 @@ impl ResultsBuffer {
     }
 
     fn init(&mut self, size: usize, n_ch: usize) {
-        self.current = TFresults::new(size, n_ch);
+        self.current = SDEresults::new(size, n_ch);
         for n in 0..TAD {
-            self.data.push(TFresults::new(size, n_ch));
+            self.data.push(SDEresults::new(size, n_ch));
         }
     }
 
-    fn update(&mut self, input: &TFresults) {
+    fn update(&mut self, input: &SDEresults) {
         self.data[self.cursor] = *input;
         self.cursor += 1;
         if self.cursor >= TAD {
@@ -165,5 +121,21 @@ impl ResultsBuffer {
     fn refresh(&mut self) {
         self.cursor = 0;
         self.full = false;
+    }
+}
+
+pub struct OutputBuffer {
+    data: UndelayedBuffer,
+}
+
+impl OutputBuffer {
+    fn init(&mut self, s_r: usize, n_ch: usize) {
+        self.data.init(s_r, n_ch)
+    }
+    fn update(&mut self, input: UndelayedBuffer) -> UndelayedBuffer {
+        input
+    }
+    fn refresh(&mut self) {
+        self.data.clear();
     }
 }

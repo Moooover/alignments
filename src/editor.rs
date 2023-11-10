@@ -24,7 +24,7 @@ pub(crate) fn default_state() -> Arc<ViziaState> {
 
 pub(crate) fn create(
     params: Arc<ATparams>,
-    current_measurement: Receiver<TFresults>,
+    tx_plugin: Sender<TFresults>,
     editor_state: Arc<ViziaState>,
 ) -> Option<Box<dyn Editor>> {
     create_vizia_editor(editor_state, ViziaTheming::None, move |cx, _| {
