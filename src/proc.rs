@@ -23,4 +23,3 @@ use std::thread;
    // fn find_difference(&self, input: TFinput) -> TFresults {}
 
    // fn time_avg(&mut self, input: TFresults) -> TFresults {}
-}

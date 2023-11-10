@@ -13,7 +13,7 @@ const EDITOR_H: u32 = 150;
 #[derive(Lens)]
 struct State {
     params: Arc<ATparams>,
-    results: Arc<Vec<TFresults>>,
+    results: Arc<Vec<UndelayedBuffer>>,
 }
 impl Model for State {}
 
@@ -24,7 +24,7 @@ pub(crate) fn default_state() -> Arc<ViziaState> {
 
 pub(crate) fn create(
     params: Arc<ATparams>,
-    tx_plugin: Sender<TFresults>,
+    tx_plugin: Sender<UndelayedBuffer>,
     editor_state: Arc<ViziaState>,
 ) -> Option<Box<dyn Editor>> {
     create_vizia_editor(editor_state, ViziaTheming::None, move |cx, _| {
