@@ -1,4 +1,5 @@
 use nih_plug::prelude::*;
+use nih_plug::prelude::nih_log::OutputTarget;
 use nih_plug_vizia::ViziaState;
 
 use crate::buffers::*;
@@ -24,7 +25,7 @@ pub struct SDE {
     s_r: usize,
     size: usize,
     n_chan: usize,
-    rx_plug: Receiver<TFresults>,
+    rx_plug: Receiver<UndelayedBuffer>,
 }
 
 #[derive(Params)]
@@ -38,10 +39,10 @@ struct SDEparams {
 impl Default for SDE {
     fn default() -> Self {
         let (tx_plug, rx_plug) = channel();
-        let (tx_gui, rx_gui) = channel();
         Self {
             params: Arc::new(SDEparams::default()),
             in_buff: InputBuffer::default(),
+            out_buff: OutputBuffer::default(),
             s_r: 0,
             size: 0,
             n_chan: 2,
@@ -67,9 +68,9 @@ impl Plugin for SDE {
         context: &mut impl InitContext<Self>,
     ) -> bool {
         self.s_r = buff_config.sample_rate as usize;
-        self.n_chan = audio_config.main_input_channels.unwrap() as usize;//theoretically never fails
+        self.n_chan = audio_config.main_input_channels.unwrap().get() as usize;//theoretically never fails
         //since host knows we need minimum 2 channels
-        self.size = self.in_buff.init(self.s_r, self.n_chan);
+        self.size = *self.in_buff.init(self.s_r, self.n_chan);
         self.out_buff.init(self.s_r, self.n_chan);
 
         true
@@ -84,8 +85,8 @@ impl Plugin for SDE {
         // todo missing some event handling here: need to watch for buff resets from user
         // if let Some(event) = self.rx_plug.try_recv() {}
 
-        if let Some(tf_buff) = self.in_buff.update(buffer) {
-                self.tx_gui.send(self.out_buff.update(proc::measure(tf_buff)));
+        if let Some(tf_buff) = self.in_buff.update(buff) {
+                self.out_buff.update(proc::measure(tf_buff));
         }
         //todo set output to zeros
         ProcessStatus::Normal
@@ -182,7 +183,7 @@ impl Plugin for SDE {
         },
     ];
 
-    const SAMPLE_ACCURSDEE_AUTOMATION: bool = true;
+    const SAMPLE_ACCURATE_AUTOMATION: bool = true;
 
     type SysExMessage = ();
     type BackgroundTask = ();
@@ -194,11 +195,11 @@ impl ClapPlugin for SDE {
     const CLAP_DESCRIPTION: Option<&'static str> = Some("For rapid sound system deployment");
     const CLAP_MANUAL_URL: Option<&'static str> = Some("sde.hypertool.xyz/manual");
     const CLAP_SUPPORT_URL: Option<&'static str> = None;
-    const CLAP_FESDEURES: &'static [ClapFeature] = &[ClapFeature::Utility];
+    const CLAP_FEATURES: &'static [ClapFeature] = &[ClapFeature::Utility];
 }
 
 impl Vst3Plugin for SDE {
-    const VST3_CLASS_ID: [u8; 16] = *b"Signal Difference Engine v.0";
+    const VST3_CLASS_ID: [u8; 16] = *b"Sig Diff Eng v.0";
     const VST3_SUBCATEGORIES: &'static [Vst3SubCategory] = &[Vst3SubCategory::Tools];
 }
 

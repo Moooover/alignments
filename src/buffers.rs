@@ -1,6 +1,5 @@
 use crate::{FFT_32K, FFT_64K, TEMPORAL_AVG_DEPTH as TAD};
 use nih_plug::prelude::*;
-use std::sync::mpsc::*;
 
 pub struct InputBuffer {
     data: UndelayedBuffer,
@@ -24,7 +23,7 @@ impl InputBuffer {
         &self.size
     }
 
-    pub fn update(&mut self, input: &Buffer) -> Option<UndelayedBuffer> {
+    pub fn update(&mut self, input: &mut Buffer) -> Option<UndelayedBuffer> {
         for (n_ch, chan) in input.iter_samples().enumerate() {
             for sample in chan {
                 self.data.push(n_ch, sample);
@@ -84,6 +83,18 @@ impl UndelayedBuffer {
         }
     }
 }
+pub struct SDEresults {
+}
+impl SDEresults {
+    pub fn default() -> Self {
+        Self {
+        }
+    }
+    pub fn new(s_r: usize, n_ch: usize) -> Self {
+        Self {
+        }
+    }
+}
 
 pub struct TimeAvgBuffer {
     current: SDEresults,
@@ -129,13 +140,18 @@ pub struct OutputBuffer {
 }
 
 impl OutputBuffer {
-    fn init(&mut self, s_r: usize, n_ch: usize) {
+    pub fn default() -> Self {
+        Self {
+            data: UndelayedBuffer::default(),
+        }
+    }
+    pub fn init(&mut self, s_r: usize, n_ch: usize) {
         self.data.init(s_r, n_ch)
     }
-    fn update(&mut self, input: UndelayedBuffer) -> UndelayedBuffer {
+    pub fn update(&mut self, input: UndelayedBuffer) -> UndelayedBuffer {
         input
     }
-    fn refresh(&mut self) {
+    pub fn refresh(&mut self) {
         self.data.clear();
     }
 }
